@@ -39,5 +39,13 @@ app.post("/participants", async (req, res) => {
   }
 });
 
+app.get("/participants", async (req, res) => {
+  try {
+    const participants = await conllectionParticipants.find().toArray();
+    res.send(participants);
+  } catch (err) {
+    console.log(err);
+  }
+});
 
 app.listen(5000, () => console.log("app running port: 5000"));
