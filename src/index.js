@@ -48,4 +48,24 @@ app.get("/participants", async (req, res) => {
   }
 });
 
+app.post("/messages", async (req, res) => {
+  const { to, text, type } = req.body;
+  const { user } = req.headers;
+
+  const message = {
+    from: user,
+    to,
+    text,
+    type,
+    time: dayjs().format("HH:mm:ss"),
+  };
+  try {
+    await collectionMessages.insertOne(message);
+    res.sendStatus(201);
+  } catch (err) {
+    console.log(err);
+    res.send("errr");
+  }
+});
+
 app.listen(5000, () => console.log("app running port: 5000"));
