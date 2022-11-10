@@ -68,4 +68,18 @@ app.post("/messages", async (req, res) => {
   }
 });
 
+app.get("/messages", async (req, res) => {
+  try {
+    const messages = await collectionMessages.find().toArray();
+    res.status(201).send(messages);
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(500);
+  }
+});
+
+// app.post("/status", async (req, res) => {
+//   //remover user
+// });
+
 app.listen(5000, () => console.log("app running port: 5000"));
