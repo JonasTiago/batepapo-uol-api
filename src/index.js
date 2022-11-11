@@ -99,22 +99,46 @@ app.post("/messages", async (req, res) => {
     };
 
     await collectionMessages.insertOne(message);
-    res.sendStatus(201)
+    res.sendStatus(201);
   } catch (err) {
     console.log(err);
     res.send("errr");
   }
 });
 
-// app.get("/messages", async (req, res) => {
-//   try {
-//     const messages = await collectionMessages.find().toArray();
-//     res.status(201).send(messages);
-//   } catch (err) {
-//     console.log(err);
-//     res.sendStatus(500);
-//   }
-// });
+app.get("/messages", async (req, res) => {
+  const limitMessege = parseInt(req.query.limit);
+  const user = req.headers.user;
+
+  try {
+    const messages = await collectionMessages.find().toArray();
+
+    if (limitMessege) {
+      const messageReturn = messages
+        .reverse()
+        .filter((message, index) => index < limitMessege);
+
+      res
+        .status(201)
+        .send(
+          messageReturn.filter(
+            (msg) => msg.type === "message" || msg.to === user
+          )
+        );
+
+      return;
+    }
+
+    res.status(201).send(messages.reverse().filter(
+            (msg) => msg.type === "message" || msg.to === user
+          ));
+
+
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(500);
+  }
+});
 
 // app.post("/status", async (req, res) => {
 //   //remover user
