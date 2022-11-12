@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import dayjs from "dayjs";
 import joi from "joi";
 
@@ -62,7 +62,7 @@ app.post("/participants", async (req, res) => {
 
     await collectionParticipants.insertOne(participant);
     await collectionMessages.insertOne(message);
-    res.sendStatus(201);
+    res.status(201).send("criado");
   } catch (err) {
     console.log(err);
     res.sendStatus(500);
@@ -125,27 +125,22 @@ app.get("/messages", async (req, res) => {
     const messages = await collectionMessages.find().toArray();
 
     if (limitMessege) {
-      const messageReturn = messages
-        .reverse()
-        .filter((message, index) => index < limitMessege);
+      const messagesForUser = messages.filter(
+        (msg) => msg.type === "message" || "todos" || msg.to === user
+      );
 
-      res
-        .status(201)
-        .send(
-          messageReturn.filter(
-            (msg) => msg.type === "message" || msg.to === user
-          )
-        );
+      const messageLimitUser = messagesForUser.reverse().slice(0, limitMessege);
 
+      res.status(201).send(messageLimitUser.reverse());
       return;
     }
 
     res
       .status(201)
       .send(
-        messages
-          .reverse()
-          .filter((msg) => msg.type === "message" || msg.to === user)
+        messages.filter(
+          (msg) => msg.type === "message" || "todos" || msg.to === user
+        )
       );
   } catch (err) {
     console.log(err);
@@ -176,7 +171,7 @@ app.post("/status", async (req, res) => {
   }
 });
 
-setInterval(async (res) => {
+setInterval(async () => {
   try {
     const participants = await collectionParticipants.find().toArray();
 
@@ -184,7 +179,7 @@ setInterval(async (res) => {
       (participant) => participant.lastStatus
     );
 
-    const maxOffTime = 10.0;
+    const maxOffTime = 10;
 
     const participantsOff = participantStatus.filter(
       (status) => (Date.now() / 1000 - status / 1000).toFixed(0) > maxOffTime
@@ -213,5 +208,31 @@ setInterval(async (res) => {
     console.log(err);
   }
 }, 15000);
+
+//bonus
+
+app.delete("/messages/:id", async (req, res) => {
+  const { id } = req.params;
+  const { user } = req.headers;
+
+  try {
+    const message = await collectionMessages.findOne({ _id: ObjectId(id) });
+
+    if (!message) {
+      res.sendStatus(404);
+      return;
+    }
+
+    const confirmUser = message.from === user;
+
+    if (!confirmUser) return res.sendStatus(401);
+
+    await collectionMessages.deleteOne({ _id: ObjectId(id) });
+    res.status(200).send({ message: "Documento apagado com sucesso!" });
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(404);
+  }
+});
 
 app.listen(5000, () => console.log("app running port: 5000"));
