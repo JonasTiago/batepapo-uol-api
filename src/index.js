@@ -119,16 +119,16 @@ app.post("/messages", async (req, res) => {
 
 app.get("/messages", async (req, res) => {
   const limitMessege = parseInt(req.query.limit);
-  const user = req.headers.user;
+  const { user } = req.headers;
 
   try {
     const messages = await collectionMessages.find().toArray();
+    // console.log(messages)
 
     if (limitMessege) {
       const messagesForUser = messages.filter(
-        (msg) => msg.type === "message" || "todos" || msg.to === user
+        (msg) =>  !(msg.type === "private_message") || msg.to === user || msg.from === user
       );
-
       const messageLimitUser = messagesForUser.reverse().slice(0, limitMessege);
 
       res.status(201).send(messageLimitUser.reverse());
@@ -171,43 +171,43 @@ app.post("/status", async (req, res) => {
   }
 });
 
-// setInterval(async () => {
-//   try {
-//     const participants = await collectionParticipants.find().toArray();
+setInterval(async () => {
+  try {
+    const participants = await collectionParticipants.find().toArray();
 
-//     const participantStatus = participants.map(
-//       (participant) => participant.lastStatus
-//     );
+    const participantStatus = participants.map(
+      (participant) => participant.lastStatus
+    );
 
-//     const maxOffTime = 10;
+    const maxOffTime = 10;
 
-//     const participantsOff = participantStatus.filter(
-//       (status) => (Date.now() / 1000 - status / 1000).toFixed(0) > maxOffTime
-//     );
+    const participantsOff = participantStatus.filter(
+      (status) => (Date.now() / 1000 - status / 1000).toFixed(0) > maxOffTime
+    );
 
-//     participantsOff.forEach(async (participant) => {
-//       try {
-//         const participantDelete = await collectionParticipants.findOne({
-//           lastStatus: participant,
-//         });
+    participantsOff.forEach(async (participant) => {
+      try {
+        const participantDelete = await collectionParticipants.findOne({
+          lastStatus: participant,
+        });
 
-//         await collectionMessages.insertOne({
-//           from: participantDelete.name,
-//           to: "Todos",
-//           text: "sai da sala...",
-//           type: "status",
-//           time: dayjs().format("HH:mm:ss"),
-//         });
+        await collectionMessages.insertOne({
+          from: participantDelete.name,
+          to: "Todos",
+          text: "sai da sala...",
+          type: "status",
+          time: dayjs().format("HH:mm:ss"),
+        });
 
-//         await collectionParticipants.deleteOne({ lastStatus: participant });
-//       } catch (err) {
-//         console.log(err);
-//       }
-//     });
-//   } catch (err) {
-//     console.log(err);
-//   }
-// }, 15000);
+        await collectionParticipants.deleteOne({ lastStatus: participant });
+      } catch (err) {
+        console.log(err);
+      }
+    });
+  } catch (err) {
+    console.log(err);
+  }
+}, 15000);
 
 //bonus delete
 
@@ -262,11 +262,16 @@ app.put("/messages/:id", async (req, res) => {
     const confirmUser = messageFound.from === user;
     if (!confirmUser) return res.sendStatus(401);
 
-    await collectionMessages.updateOne({_id:messageFound._id}, {$set: {
-      to,
-      text,
-      type
-    }})
+    await collectionMessages.updateOne(
+      { _id: messageFound._id },
+      {
+        $set: {
+          to,
+          text,
+          type,
+        },
+      }
+    );
 
     res.sendStatus(200);
   } catch (err) {
