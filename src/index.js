@@ -28,32 +28,40 @@ try {
 }
 
 const db = mongoClient.db("batePapoUol");
-const conllectionParticipants = db.collection("participants");
+const collectionParticipants = db.collection("participants");
 const collectionMessages = db.collection("messages");
 
 app.post("/participants", async (req, res) => {
   const { name } = req.body;
 
-  const { error } = nameSchema.validate({ name }, { abortEarly: false });
-
-  if (error) {
-    res
-      .status(422)
-      .send("name deve ser strings não vazio, e no minimo 3 caracteres!");
-    return;
-  }
-
-  const participant = { name, lastStatus: Date.now() };
-
   try {
-    const existingParticipant = await conllectionParticipants.findOne({ name });
+    const existingParticipant = await collectionParticipants.findOne({ name });
 
     if (existingParticipant) {
       res.status(409).send("name já está sendo usado!");
       return;
     }
 
-    await conllectionParticipants.insertOne(participant);
+    const { error } = nameSchema.validate({ name }, { abortEarly: false });
+
+    if (error) {
+      res
+        .status(422)
+        .send("name deve ser strings não vazio, e no minimo 3 caracteres!");
+      return;
+    }
+
+    const participant = { name, lastStatus: Date.now() };
+    const message = {
+      from: name,
+      to: "Todos",
+      text: "entra na sala...",
+      type: "status",
+      time: dayjs().format("HH:mm:ss"),
+    };
+
+    await collectionParticipants.insertOne(participant);
+    await collectionMessages.insertOne(message);
     res.sendStatus(201);
   } catch (err) {
     console.log(err);
@@ -63,7 +71,7 @@ app.post("/participants", async (req, res) => {
 
 app.get("/participants", async (req, res) => {
   try {
-    const participants = await conllectionParticipants.find().toArray();
+    const participants = await collectionParticipants.find().toArray();
     res.send(participants);
   } catch (err) {
     console.log(err);
@@ -75,7 +83,10 @@ app.post("/messages", async (req, res) => {
   const { to, text, type } = req.body;
   const { user } = req.headers;
 
-  const { error } = messageSchema.validate({ to, text, type });
+  const { error } = messageSchema.validate(
+    { to, text, type },
+    { abortEarly: false }
+  );
 
   if (error) {
     res.status(422).send(error.message);
@@ -83,7 +94,7 @@ app.post("/messages", async (req, res) => {
   }
 
   try {
-    const useEx = await conllectionParticipants.findOne({ name: user });
+    const useEx = await collectionParticipants.findOne({ name: user });
 
     if (!useEx) {
       res.sendStatus(422);
@@ -129,19 +140,40 @@ app.get("/messages", async (req, res) => {
       return;
     }
 
-    res.status(201).send(messages.reverse().filter(
-            (msg) => msg.type === "message" || msg.to === user
-          ));
-
-
+    res
+      .status(201)
+      .send(
+        messages
+          .reverse()
+          .filter((msg) => msg.type === "message" || msg.to === user)
+      );
   } catch (err) {
     console.log(err);
     res.sendStatus(500);
   }
 });
 
-// app.post("/status", async (req, res) => {
-//   //remover user
-// });
+app.post("/status", async (req, res) => {
+  const user = req.headers.user;
+
+  try {
+    const userOk = await collectionParticipants.findOne({ name: user });
+
+    if (!userOk) {
+      res.sendStatus(400);
+    }
+
+    conllectionParticipants.updateOne(userOk, {
+      $set: {
+        ...userOk,
+        lastStatus: Date.now(),
+      },
+    });
+    res.status(200).send(userOk);
+  } catch (err) {
+    console.log(err);
+    res.sendStatus(401);
+  }
+});
 
 app.listen(5000, () => console.log("app running port: 5000"));
