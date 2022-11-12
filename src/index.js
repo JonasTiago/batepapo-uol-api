@@ -89,7 +89,7 @@ app.post("/messages", async (req, res) => {
   );
 
   if (error) {
-    res.status(422).send(error.message);
+    res.status(422).send(error.details.map((detail) => detail.message));
     return;
   }
 
@@ -171,45 +171,45 @@ app.post("/status", async (req, res) => {
   }
 });
 
-setInterval(async () => {
-  try {
-    const participants = await collectionParticipants.find().toArray();
+// setInterval(async () => {
+//   try {
+//     const participants = await collectionParticipants.find().toArray();
 
-    const participantStatus = participants.map(
-      (participant) => participant.lastStatus
-    );
+//     const participantStatus = participants.map(
+//       (participant) => participant.lastStatus
+//     );
 
-    const maxOffTime = 10;
+//     const maxOffTime = 10;
 
-    const participantsOff = participantStatus.filter(
-      (status) => (Date.now() / 1000 - status / 1000).toFixed(0) > maxOffTime
-    );
+//     const participantsOff = participantStatus.filter(
+//       (status) => (Date.now() / 1000 - status / 1000).toFixed(0) > maxOffTime
+//     );
 
-    participantsOff.forEach(async (participant) => {
-      try {
-        const participantDelete = await collectionParticipants.findOne({
-          lastStatus: participant,
-        });
+//     participantsOff.forEach(async (participant) => {
+//       try {
+//         const participantDelete = await collectionParticipants.findOne({
+//           lastStatus: participant,
+//         });
 
-        await collectionMessages.insertOne({
-          from: participantDelete.name,
-          to: "Todos",
-          text: "sai da sala...",
-          type: "status",
-          time: dayjs().format("HH:mm:ss"),
-        });
+//         await collectionMessages.insertOne({
+//           from: participantDelete.name,
+//           to: "Todos",
+//           text: "sai da sala...",
+//           type: "status",
+//           time: dayjs().format("HH:mm:ss"),
+//         });
 
-        await collectionParticipants.deleteOne({ lastStatus: participant });
-      } catch (err) {
-        console.log(err);
-      }
-    });
-  } catch (err) {
-    console.log(err);
-  }
-}, 15000);
+//         await collectionParticipants.deleteOne({ lastStatus: participant });
+//       } catch (err) {
+//         console.log(err);
+//       }
+//     });
+//   } catch (err) {
+//     console.log(err);
+//   }
+// }, 15000);
 
-//bonus
+//bonus delete
 
 app.delete("/messages/:id", async (req, res) => {
   const { id } = req.params;
@@ -217,14 +217,12 @@ app.delete("/messages/:id", async (req, res) => {
 
   try {
     const message = await collectionMessages.findOne({ _id: ObjectId(id) });
-
     if (!message) {
       res.sendStatus(404);
       return;
     }
 
     const confirmUser = message.from === user;
-
     if (!confirmUser) return res.sendStatus(401);
 
     await collectionMessages.deleteOne({ _id: ObjectId(id) });
@@ -232,6 +230,48 @@ app.delete("/messages/:id", async (req, res) => {
   } catch (err) {
     console.log(err);
     res.sendStatus(404);
+  }
+});
+
+//bonus put/edit
+
+app.put("/messages/:id", async (req, res) => {
+  const { id } = req.params;
+  const { user } = req.headers;
+  const { to, text, type } = req.body;
+
+  const { error } = messageSchema.validate(
+    { to, text, type },
+    { abortEarly: false }
+  );
+
+  if (error) {
+    res.status(422).send(error.details.map((detail) => detail.message));
+    return;
+  }
+  try {
+    const userOk = await collectionParticipants.findOne({ name: user });
+    if (!userOk) return res.sendStatus(422);
+
+    const messageFound = await collectionMessages.findOne({
+      _id: ObjectId(id),
+    });
+    console.log(messageFound);
+    if (!messageFound) return res.sendStatus(404);
+
+    const confirmUser = messageFound.from === user;
+    if (!confirmUser) return res.sendStatus(401);
+
+    await collectionMessages.updateOne({_id:messageFound._id}, {$set: {
+      to,
+      text,
+      type
+    }})
+
+    res.sendStatus(200);
+  } catch (err) {
+    console.log(err);
+    res.status(500).send(err.message);
   }
 });
 
