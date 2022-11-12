@@ -163,7 +163,7 @@ app.post("/status", async (req, res) => {
       res.sendStatus(400);
     }
 
-    conllectionParticipants.updateOne(userOk, {
+    collectionParticipants.updateOne(userOk, {
       $set: {
         ...userOk,
         lastStatus: Date.now(),
@@ -175,5 +175,43 @@ app.post("/status", async (req, res) => {
     res.sendStatus(401);
   }
 });
+
+setInterval(async (res) => {
+  try {
+    const participants = await collectionParticipants.find().toArray();
+
+    const participantStatus = participants.map(
+      (participant) => participant.lastStatus
+    );
+
+    const maxOffTime = 10.0;
+
+    const participantsOff = participantStatus.filter(
+      (status) => (Date.now() / 1000 - status / 1000).toFixed(0) > maxOffTime
+    );
+
+    participantsOff.forEach(async (participant) => {
+      try {
+        const participantDelete = await collectionParticipants.findOne({
+          lastStatus: participant,
+        });
+
+        await collectionMessages.insertOne({
+          from: participantDelete.name,
+          to: "Todos",
+          text: "sai da sala...",
+          type: "status",
+          time: dayjs().format("HH:mm:ss"),
+        });
+
+        await collectionParticipants.deleteOne({ lastStatus: participant });
+      } catch (err) {
+        console.log(err);
+      }
+    });
+  } catch (err) {
+    console.log(err);
+  }
+}, 15000);
 
 app.listen(5000, () => console.log("app running port: 5000"));
