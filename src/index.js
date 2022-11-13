@@ -31,6 +31,44 @@ const db = mongoClient.db("batePapoUol");
 const collectionParticipants = db.collection("participants");
 const collectionMessages = db.collection("messages");
 
+setInterval(async () => {
+  try {
+    const participants = await collectionParticipants.find().toArray();
+
+    const participantStatus = participants.map(
+      (participant) => participant.lastStatus
+    );
+
+    const maxOffTime = 10;
+
+    const participantsOff = participantStatus.filter(
+      (status) => (Date.now() / 1000 - status / 1000).toFixed(0) > maxOffTime
+    );
+
+    participantsOff.forEach(async (participant) => {
+      try {
+        const participantDelete = await collectionParticipants.findOne({
+          lastStatus: participant,
+        });
+
+        await collectionMessages.insertOne({
+          from: participantDelete.name,
+          to: "Todos",
+          text: "sai da sala...",
+          type: "status",
+          time: dayjs().format("HH:mm:ss"),
+        });
+
+        await collectionParticipants.deleteOne({ lastStatus: participant });
+      } catch (err) {
+        console.log(err);
+      }
+    });
+  } catch (err) {
+    console.log(err);
+  }
+}, 15000);
+
 app.post("/participants", async (req, res) => {
   const { name } = req.body;
 
@@ -123,9 +161,8 @@ app.get("/messages", async (req, res) => {
 
   try {
     const messages = await collectionMessages.find().toArray();
-    // console.log(messages)
-
-    if (limitMessege) {
+    
+    if (limitMessege <= messages.length) {
       const messagesForUser = messages.filter(
         (msg) =>  !(msg.type === "private_message") || msg.to === user || msg.from === user
       );
@@ -139,7 +176,7 @@ app.get("/messages", async (req, res) => {
       .status(201)
       .send(
         messages.filter(
-          (msg) => msg.type === "message" || "todos" || msg.to === user
+          (msg) => !(msg.type === "private_message") || msg.to === user || msg.from === user
         )
       );
   } catch (err) {
@@ -170,44 +207,6 @@ app.post("/status", async (req, res) => {
     res.sendStatus(401);
   }
 });
-
-setInterval(async () => {
-  try {
-    const participants = await collectionParticipants.find().toArray();
-
-    const participantStatus = participants.map(
-      (participant) => participant.lastStatus
-    );
-
-    const maxOffTime = 10;
-
-    const participantsOff = participantStatus.filter(
-      (status) => (Date.now() / 1000 - status / 1000).toFixed(0) > maxOffTime
-    );
-
-    participantsOff.forEach(async (participant) => {
-      try {
-        const participantDelete = await collectionParticipants.findOne({
-          lastStatus: participant,
-        });
-
-        await collectionMessages.insertOne({
-          from: participantDelete.name,
-          to: "Todos",
-          text: "sai da sala...",
-          type: "status",
-          time: dayjs().format("HH:mm:ss"),
-        });
-
-        await collectionParticipants.deleteOne({ lastStatus: participant });
-      } catch (err) {
-        console.log(err);
-      }
-    });
-  } catch (err) {
-    console.log(err);
-  }
-}, 15000);
 
 //bonus delete
 
@@ -256,7 +255,6 @@ app.put("/messages/:id", async (req, res) => {
     const messageFound = await collectionMessages.findOne({
       _id: ObjectId(id),
     });
-    console.log(messageFound);
     if (!messageFound) return res.sendStatus(404);
 
     const confirmUser = messageFound.from === user;
