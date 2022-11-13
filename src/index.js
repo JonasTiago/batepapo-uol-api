@@ -3,6 +3,9 @@ import cors from "cors";
 import { MongoClient, ObjectId } from "mongodb";
 import dayjs from "dayjs";
 import joi from "joi";
+/*bonus*/
+import { stripHtml } from "string-strip-html";
+
 
 const nameSchema = joi.object({
   name: joi.string().min(3).required(),
@@ -70,7 +73,7 @@ setInterval(async () => {
 }, 15000);
 
 app.post("/participants", async (req, res) => {
-  const { name } = req.body;
+  const name = stripHtml(req.body.name).result;
 
   try {
     const existingParticipant = await collectionParticipants.findOne({ name });
@@ -91,7 +94,7 @@ app.post("/participants", async (req, res) => {
 
     const participant = { name, lastStatus: Date.now() };
     const message = {
-      from: name,
+      from: name.trim(),
       to: "Todos",
       text: "entra na sala...",
       type: "status",
@@ -118,8 +121,12 @@ app.get("/participants", async (req, res) => {
 });
 
 app.post("/messages", async (req, res) => {
-  const { to, text, type } = req.body;
+  const to =  stripHtml(req.body.to).result;
+  const text =  stripHtml(req.body.text).result;
+  const  type =  stripHtml(req.body.type).result;
   const { user } = req.headers;
+
+  console.log(to)
 
   const { error } = messageSchema.validate(
     { to, text, type },
@@ -140,10 +147,10 @@ app.post("/messages", async (req, res) => {
     }
 
     const message = {
-      from: user,
-      to,
-      text,
-      type,
+      from: user.trim(),
+      to:to.trim(),
+      text:text.trim(),
+      type:type.trim(),
       time: dayjs().format("HH:mm:ss"),
     };
 
@@ -161,10 +168,13 @@ app.get("/messages", async (req, res) => {
 
   try {
     const messages = await collectionMessages.find().toArray();
-    
+
     if (limitMessege <= messages.length) {
       const messagesForUser = messages.filter(
-        (msg) =>  !(msg.type === "private_message") || msg.to === user || msg.from === user
+        (msg) =>
+          !(msg.type === "private_message") ||
+          msg.to === user ||
+          msg.from === user
       );
       const messageLimitUser = messagesForUser.reverse().slice(0, limitMessege);
 
@@ -176,7 +186,10 @@ app.get("/messages", async (req, res) => {
       .status(201)
       .send(
         messages.filter(
-          (msg) => !(msg.type === "private_message") || msg.to === user || msg.from === user
+          (msg) =>
+            !(msg.type === "private_message") ||
+            msg.to === user ||
+            msg.from === user
         )
       );
   } catch (err) {
