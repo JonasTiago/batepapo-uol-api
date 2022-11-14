@@ -4,7 +4,6 @@ import { MongoClient, ObjectId } from "mongodb";
 import dayjs from "dayjs";
 import joi from "joi";
 import dotenv from "dotenv";
-/*bonus*/
 import { stripHtml } from "string-strip-html";
 
 const nameSchema = joi.object({
@@ -18,12 +17,12 @@ const messageSchema = joi.object({
 });
 
 const app = express();
+
 dotenv.config();
 app.use(cors());
 app.use(express.json());
 
-const mongoClient = new MongoClient(process.env.MONGO_URI); //servidor local
-
+const mongoClient = new MongoClient(process.env.MONGO_URI);
 try {
   await mongoClient.connect();
   console.log("MongoDB Conectado!");
@@ -50,24 +49,21 @@ setInterval(async () => {
     );
 
     participantsOff.forEach(async (participant) => {
-      try {
-        const participantDelete = await collectionParticipants.findOne({
-          lastStatus: participant,
-        });
+      const participantDelete = await collectionParticipants.findOne({
+        lastStatus: participant,
+      });
 
-        await collectionMessages.insertOne({
-          from: participantDelete.name,
-          to: "Todos",
-          text: "sai da sala...",
-          type: "status",
-          time: dayjs().format("HH:mm:ss"),
-        });
+      await collectionMessages.insertOne({
+        from: participantDelete.name,
+        to: "Todos",
+        text: "sai da sala...",
+        type: "status",
+        time: dayjs().format("HH:mm:ss"),
+      });
 
-        await collectionParticipants.deleteOne({ lastStatus: participant });
-      } catch (err) {
-        console.log(err);
-      }
+      await collectionParticipants.deleteOne({ lastStatus: participant });
     });
+    
   } catch (err) {
     console.log(err);
   }
