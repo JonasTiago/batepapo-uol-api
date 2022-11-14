@@ -3,9 +3,9 @@ import cors from "cors";
 import { MongoClient, ObjectId } from "mongodb";
 import dayjs from "dayjs";
 import joi from "joi";
+import dotenv from "dotenv";
 /*bonus*/
 import { stripHtml } from "string-strip-html";
-
 
 const nameSchema = joi.object({
   name: joi.string().min(3).required(),
@@ -18,10 +18,11 @@ const messageSchema = joi.object({
 });
 
 const app = express();
+dotenv.config();
 app.use(cors());
 app.use(express.json());
 
-const mongoClient = new MongoClient("mongodb://localhost:27017"); //servidor local
+const mongoClient = new MongoClient(process.env.MONGO_URI); //servidor local
 
 try {
   await mongoClient.connect();
@@ -121,12 +122,12 @@ app.get("/participants", async (req, res) => {
 });
 
 app.post("/messages", async (req, res) => {
-  const to =  stripHtml(req.body.to).result;
-  const text =  stripHtml(req.body.text).result;
-  const  type =  stripHtml(req.body.type).result;
+  const to = stripHtml(req.body.to).result;
+  const text = stripHtml(req.body.text).result;
+  const type = stripHtml(req.body.type).result;
   const { user } = req.headers;
 
-  console.log(to)
+  console.log(to);
 
   const { error } = messageSchema.validate(
     { to, text, type },
@@ -148,9 +149,9 @@ app.post("/messages", async (req, res) => {
 
     const message = {
       from: user.trim(),
-      to:to.trim(),
-      text:text.trim(),
-      type:type.trim(),
+      to: to.trim(),
+      text: text.trim(),
+      type: type.trim(),
       time: dayjs().format("HH:mm:ss"),
     };
 
@@ -222,7 +223,6 @@ app.post("/status", async (req, res) => {
 });
 
 //bonus delete
-
 app.delete("/messages/:id", async (req, res) => {
   const { id } = req.params;
   const { user } = req.headers;
@@ -246,7 +246,6 @@ app.delete("/messages/:id", async (req, res) => {
 });
 
 //bonus put/edit
-
 app.put("/messages/:id", async (req, res) => {
   const { id } = req.params;
   const { user } = req.headers;
